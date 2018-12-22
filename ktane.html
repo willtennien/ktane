@@ -1,0 +1,368 @@
+
+<!--
+
+TODO
+
+center bomb
+
+typeface.js
+    If not, remove hebrew 1505
+    Or try to choose a consistent font
+enable clicking
+color them when you click them
+    if you get it wrong, maybe a fun animation?
+    if i'm short on time, use this
+        https://giphy.com/explore/explosion
+        pick 50 and cycle through them?
+
+-->
+
+<link href="https://fonts.googleapis.com/css?family=Noto+Sans" rel="stylesheet">
+
+<style>
+
+:root {
+    --font-size: 60px;
+    --cell-height: 100px;
+    --cell-width: 100px;
+}
+
+body {
+    margin: 0;
+}
+
+.instructions {
+    margin: 1em;
+}
+
+.table-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+}
+
+.table,
+.panel {
+    font-family: 'Noto Sans';
+}
+
+.table {
+    display: flex;
+}
+
+.table-column {
+    display: block;
+}
+
+.table-cell {
+    width: var(--cell-width);
+    height: var(--cell-height);
+    text-align: center;
+    font-size: var(--font-size);
+    line-height: var(--cell-height);
+}
+
+.panel-element {
+    display: inline-block;
+    width: var(--cell-width);
+    height: var(--cell-height);
+}
+
+.panel {
+    margin-top: 30px;
+    margin-left: 400px;
+    font-size: var(--font-size);
+}
+
+</style>
+
+<div class=instructions style='display: none'>
+    <input placeholder="Serial Number">
+
+    <h3>Manual</h3>
+
+    Add <span class=code>'#[player]-[key]'</span> to the end of this url, like:
+    <div>
+        <pre>    <a href='#manual-1234' class='instructions-link'><span class=code>file:///.../blah/blah/ktane.html#manual-1234</span></a></pre>
+    </div>
+    where <span class=code>[player]</span> is either <span class=code>manual</span> or <span class=code>bomb</span> and <span class=code>[key]</span> is the "serial number" you and your teammates share. Then reload the page by pressing first enter and then Ctrl + R (chrome is weird).
+</div>
+
+<div class=game>
+
+</div>
+
+<script>
+
+// Prime the instructions link
+document.querySelector('.instructions-link').onclick = () => {
+    location.hash = 'manual-1234'
+    location = location
+}
+
+</script>
+
+<script>
+
+
+const TABLE_WIDTH = 6
+const TABLE_HEIGHT = 7
+const DICTIONARY_SIZE = TABLE_WIDTH * TABLE_HEIGHT / 2
+
+const characters = 'qweiopasdfhjkkzxcvbnm123467890'
+
+const html = (string) => {
+    const div = document.createElement('div')
+    div.innerHTML = string
+    return div.children[0]
+}
+
+Set.prototype.intersection = function (other) {
+    const result = new Set()
+    const [ smaller, bigger ] =
+        this.size < other.size ?
+        [ this, other ] :
+        [ other, this ]
+
+    for (const elem of smaller) {
+        if (bigger.has(elem)) {
+            result.add(elem)
+        }
+    }
+
+    return result
+}
+
+const Random = (() => {
+    function xfnv1a(k) {
+        for(var i = 0, h = 2166136261 >>> 0; i < k.length; i++)
+            h = Math.imul(h ^ k.charCodeAt(i), 16777619);
+        return function() {
+            h += h << 13; h ^= h >>> 7;
+            h += h << 3;  h ^= h >>> 17;
+            return (h += h << 5) >>> 0;
+        }
+    }
+
+    function sfc32(a, b, c, d) {
+        return function() {
+          a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0; 
+          var t = (a + b) | 0;
+          a = b ^ b >>> 9;
+          b = c + (c << 3) | 0;
+          c = (c << 21 | c >>> 11);
+          d = d + 1 | 0;
+          t = t + d | 0;
+          c = c + t | 0;
+          return (t >>> 0) / 4294967296;
+        }
+    }
+
+    const createPRNG = (key) => {
+        // Create a xfnv1a state:
+        const seed = xfnv1a(key);
+
+        // Output four 32-bit hashes to produce the seed for sfc32.
+        return sfc32(seed(), seed(), seed(), seed());
+    }
+
+    /**
+     * Shuffles array in place.
+     * @param {Array} a items An array containing the items.
+     */
+    function shuffle(a, rand) {
+        var j, x, i;
+        for (i = a.length - 1; i > 0; i--) {
+            j = Math.floor(rand() * (i + 1));
+            x = a[i];
+            a[i] = a[j];
+            a[j] = x;
+        }
+        return a;
+    }
+
+    class Random {
+        constructor(key) {
+            this.rand = createPRNG(key)
+        }
+
+        shuffle(a) {
+            return shuffle(a, this.rand)
+        }
+
+        random() {
+            return this.rand()
+        }
+
+        sample(items) {
+            return items[Math.floor(this.random() * items.length)]
+        }
+    }
+
+    return Random
+})()
+
+const gameElement = document.querySelector('.game')
+
+const [ player, key ] = location.hash.slice(1).split('-')
+
+const showInstructions = () => {
+    document.querySelector('.instructions').style.display = ''
+}
+
+if (player !== 'manual' && player !== 'bomb') {
+    showInstructions()
+    throw new Error('invalid player: ' + JSON.stringify(player))
+}
+
+if (!key) {
+    showInstructions()
+    throw new Error('invalid key: ' + JSON.stringify(key))
+}
+
+const rand = new Random(key)
+
+const characterBlocks = [
+    // Ban special hebrew: 1505
+    [ 913, 1023 ], // greek: https://en.wikipedia.org/wiki/List_of_Unicode_characters#Greek_and_Coptic
+    [ 1024, 1279 ], // cyrillic: https://en.wikipedia.org/wiki/Cyrillic_(Unicode_block)
+    // [ 1024, 1103 ], // russian: https://en.wikipedia.org/wiki/Cyrillic_script_in_Unicode
+    // [ 1120, 1153], // obsolete russian: https://en.wikipedia.org/wiki/Cyrillic_script_in_Unicode
+    [ 1488, 1514 ], // hebrew: https://en.wikipedia.org/wiki/Hebrew_(Unicode_block)
+    [ 1575, 1791 ], // basic arabic: https://en.wikipedia.org/wiki/Arabic_script_in_Unicode
+    [ 4256, 4293 ], // georgian: https://en.wikipedia.org/wiki/Georgian_(Unicode_block)
+    [ 4304, 4346 ], // georgian (second block): https://en.wikipedia.org/wiki/Georgian_(Unicode_block)
+    [ 12353, 12438 ], // hiragana: https://en.wikipedia.org/wiki/Kana#In_Unicode
+    [ 12448, 12543 ], // katakana: https://en.wikipedia.org/wiki/Kana#In_Unicode
+    [ 65153, 65268 ], // fancy arabic: https://en.wikipedia.org/wiki/Arabic_script_in_Unicode#Contextual_forms
+    [ 44032, 55203 ], // korean: https://en.wikipedia.org/wiki/Hangul_Syllables
+    // TODO: indian languages
+    // https://en.wikipedia.org/wiki/Devanagari
+    // https://en.wikipedia.org/wiki/Tamil_script
+]
+
+const characterBlacklist = new Set([])
+
+const sampleFromCharacterBlocks = (n = 1) => {
+    if (n === 1) {
+        const [ start, end ] = rand.sample(characterBlocks)
+        const charCode = Math.floor(start + rand.random() * (end - start))
+        if (characterBlacklist.has(charCode)) {
+            return sampleFromCharacterBlocks()
+        } else {
+            return String.fromCharCode(charCode)
+        }
+    } else {
+        const result = []
+        for (let i = 0; i < n; i++) {
+            result.push(sampleFromCharacterBlocks())
+        }
+
+        return result
+    }
+}
+
+const genDictionary = () => {
+    return sampleFromCharacterBlocks(DICTIONARY_SIZE)
+}
+
+const generateTableHelper = () => {
+    let dictionary = genDictionary()
+    dictionary = dictionary.join('')
+    dictionary += dictionary
+    dictionary = dictionary.split('')
+    rand.shuffle(dictionary)
+    const table = []
+    for (let i = 0; i < TABLE_WIDTH; i++) {
+        const row = []
+        for (let j = 0; j < TABLE_HEIGHT; j++) {
+            row.push(dictionary[i * TABLE_HEIGHT + j])
+        }
+        table.push(row)
+    }
+
+    return table
+}
+
+const tableIsValid = (table) => {
+    for (let i = 0; i < table.length; i++) {
+        if (table[i].length !== new Set(table[i]).size) {
+            return false
+        }
+
+        for (let j = i + 1; j < table.length; j++) {  
+            if (4 <= new Set(table[i]).intersection(new Set(table[j])).size) {
+                return false
+            }
+        }
+    }
+
+    return true
+}
+
+const generateTable = () => {
+    let candidate = undefined
+    do {
+        candidate = generateTableHelper()
+    } while (!tableIsValid(candidate))
+
+    return candidate
+}
+
+const renderTable = (table) => {
+    const tableElement = document.createElement('div')
+    tableElement.className = 'table'
+    for (const column of table) {
+        const columnElement = document.createElement('div')
+        columnElement.className = 'table-column'
+        for (const character of column) {
+            const cellElement = document.createElement('div')
+            cellElement.className = 'table-cell'
+            cellElement.textContent = character
+            columnElement.appendChild(cellElement)
+        }
+        tableElement.appendChild(columnElement)
+    }
+
+    const container = document.createElement('div')
+    container.className = 'table-container'
+    container.appendChild(tableElement)
+
+    return container
+}
+
+const generatePanel = (table) => {
+    let panel = rand.sample(table)
+    rand.shuffle(panel)
+    panel = panel.slice(0, 4)
+    return panel
+}
+
+const renderPanel = (panel) => {
+    return html(`
+        <div class=panel>
+            <div class=panel-row>
+                <div class=panel-element>${panel[0]}</div>
+                <div class=panel-element>${panel[1]}</div>
+            </div>
+            <div class=panel-row>
+                <div class=panel-element>${panel[2]}</div>
+                <div class=panel-element>${panel[3]}</div>
+            </div>
+        </div>
+    `)
+}
+
+const table = generateTable()
+
+if (player === 'manual') {
+    document.querySelector('.game').appendChild(renderTable(table))
+} else if (player === 'bomb') {
+    for (let i = 0; i < 3; i++) {
+        document.querySelector('.game').appendChild(renderPanel(generatePanel(table)))
+    }
+}
+
+</script>
