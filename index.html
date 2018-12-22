@@ -15,6 +15,8 @@ color them when you click them
         https://giphy.com/explore/explosion
         pick 50 and cycle through them?
 
+change
+
 -->
 
 <link href="https://fonts.googleapis.com/css?family=Noto+Sans" rel="stylesheet">
@@ -29,7 +31,7 @@ color them when you click them
 
 body {
     font-family: 'Noto Sans';
-    color: red;
+    color: blue;
     margin: 0;
 }
 
@@ -76,6 +78,20 @@ body {
     margin-top: 30px;
     margin-left: 400px;
     font-size: var(--font-size);
+}
+
+/* https://code.google.com/p/chromium/issues/detail?id=336476#c40 */
+body {
+    -webkit-animation-delay: 0.1s;
+    -webkit-animation-name: fontfix;
+    -webkit-animation-duration: 0.1s;
+    -webkit-animation-iteration-count: 1;
+    -webkit-animation-timing-function: linear;
+}
+
+@-webkit-keyframes fontfix {
+    from { opacity: 1; }
+    to   { opacity: 1; }
 }
 
 </style>
