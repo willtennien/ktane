@@ -11,7 +11,7 @@ Font a font that supports all languages
 
         https://www.google.com/get/noto/
 
-    is the best option. (it's just a bunch of indian guys who care only about devanagari support)
+    is the best option.
 enable clicking
 color them when you click them
     if you get it wrong, maybe a fun animation?
@@ -81,8 +81,13 @@ body {
 
 .panel {
     margin-top: 30px;
-    margin-left: 400px;
     font-size: var(--font-size);
+}
+
+.game {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
 /* https://stackoverflow.com/questions/22011139/google-fonts-are-not-rendering-on-google-chrome */
@@ -358,25 +363,60 @@ const renderTable = (table) => {
 }
 
 const generatePanel = (table) => {
-    let panel = rand.sample(table)
+    const PANEL_SIZE = 4
+
+    let panel = rand.sample(table).slice()
+    for (let i = 0; i < panel.length; i++) {
+        panel[i] = [ panel[i], i ]
+    }
     rand.shuffle(panel)
-    panel = panel.slice(0, 4)
+    panel = panel.slice(0, PANEL_SIZE)
     return panel
 }
 
 const renderPanel = (panel) => {
-    return html(`
-        <div class=panel>
-            <div class=panel-row>
-                <div class=panel-element>${panel[0]}</div>
-                <div class=panel-element>${panel[1]}</div>
-            </div>
-            <div class=panel-row>
-                <div class=panel-element>${panel[2]}</div>
-                <div class=panel-element>${panel[3]}</div>
-            </div>
-        </div>
-    `)
+    let clickCount = 0
+    let panelsClicked = new Map()
+
+    const container = html(`<div class=panel></div>`)
+
+    for (let i = 0; i < 2; i++) {
+        const row = html(`<div class=panel-row></div>`)
+
+        for (let j = 0; j < 2; j++) {
+            let clicked = false
+            const panelElement = panel[2 * i + j]
+            panelsClicked.set(panelElement, false)
+
+            const element = html(`<div class=panel-element>${panelElement[0]}</div>`)
+            row.appendChild(element)
+
+            const onSuccess = () => {
+                element.classList.add('disarmed')
+                // todo: play disarmed sound
+            }
+
+            const onFailure = () => {
+                openExplosionModal()
+            }
+
+            element.onclick = () => {
+                if (clicked) {
+                    // do nothing
+                } else if (clickCount === panelElement[1]) {
+                    clicked = true
+                    clickCount += 1
+                    onSuccess()
+                } else {
+                    onFailure()
+                }
+            }
+        }
+
+        container.appendChild(row)
+    }
+
+    return container
 }
 
 const table = generateTable()
