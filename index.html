@@ -5,7 +5,7 @@ TODO
 
 center bomb
 
-Font a font that supports all languages
+Find a font that supports all languages
     try typeface.js?
     unfortunately, it sounds like
 
@@ -33,10 +33,12 @@ change
     --font-size: 60px;
     --cell-height: 100px;
     --cell-width: 100px;
+    --victory-background-color: green;
+    --victory-font-color: white;
 }
 
 body {
-    font-family: 'Arimo';
+    font-family: 'Noto';
     margin: 0;
 }
 
@@ -77,6 +79,15 @@ body {
     display: inline-block;
     width: var(--cell-width);
     height: var(--cell-height);
+    text-align: center;
+    line-height: var(--cell-height);
+    cursor: default;
+    user-select: none;
+}
+
+.panel-element.disarmed {
+    background: var(--victory-background-color);
+    color: var(--victory-font-color);
 }
 
 .panel {
@@ -88,6 +99,36 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
+}
+
+body {
+    /* uncomment this for a cool visual effect */
+    /* transition: background 1s ease-in-out; */
+}
+
+body.victory {
+    background: var(--victory-background-color);
+}
+
+body.defeat {
+    /* background: #a22; */
+    /* color: #fff; */
+}
+
+.explosion-modal {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.explosion-modal img {
+    min-width: 400px;
 }
 
 /* https://stackoverflow.com/questions/22011139/google-fonts-are-not-rendering-on-google-chrome */
@@ -371,6 +412,12 @@ const generatePanel = (table) => {
     }
     rand.shuffle(panel)
     panel = panel.slice(0, PANEL_SIZE)
+
+    const indexes = panel.map(([ _, i ]) => i)
+    indexes.sort((a, b) => a - b)
+
+    panel = panel.map(([ character, index ]) => [ character, indexes.indexOf(index) ])
+
     return panel
 }
 
@@ -394,14 +441,22 @@ const renderPanel = (panel) => {
             const onSuccess = () => {
                 element.classList.add('disarmed')
                 // todo: play disarmed sound
+
+                completed += 1
+
+                if (completed === 12) {
+                    onVictory()
+                }
             }
 
             const onFailure = () => {
+                exploded = true
+
                 openExplosionModal()
             }
 
             element.onclick = () => {
-                if (clicked) {
+                if (exploded || clicked) {
                     // do nothing
                 } else if (clickCount === panelElement[1]) {
                     clicked = true
@@ -418,6 +473,48 @@ const renderPanel = (panel) => {
 
     return container
 }
+
+const onVictory = () => {
+    document.body.classList.add('victory')
+}
+
+const openExplosionModal = () => {
+    document.body.classList.add('defeat')
+
+    const images = [
+        'bird.gif',
+        'boom.gif',
+        'breaking-bad-charmander.gif',
+        'don-draper.gif',
+        'stark.gif',
+        'waffle.webp',
+        'wwe.gif',
+    ]
+
+    const videos = [
+        'chemistry.mp4',
+    ]
+
+    const media = rand.sample(
+        images
+            .map((src) =>
+                `<img src=${JSON.stringify('explosions/' + src)}>`)
+            .concat(
+                videos
+                    .map((src) =>
+                        `<video autoplay src=${JSON.stringify('explosions/' + src)}>`)))
+
+    const modal = html(`
+        <div class=explosion-modal>
+            ${media}
+        </div>
+    `)
+
+    document.body.appendChild(modal)
+}
+
+let exploded = false
+let completed = 0
 
 const table = generateTable()
 
